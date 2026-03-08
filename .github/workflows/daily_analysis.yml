@@ -35,29 +35,46 @@ jobs:
     timeout-minutes: 30
     
     steps:
+  # 1. 检出代码（核心：删除path，默认检出到WORKSPACE根目录）
       - name: 检出代码
         uses: actions/checkout@v4
         with:
-          ref: main
-          path: ./gupiao  # 明确：将代码检出到内层 gupiao 目录
-
-      - name: 随机延迟（避免固定时间访问）
-        run: sleep $((RANDOM % 60))  # 随机延迟0-60秒启动
-      
-      - name: 设置 Python 环境
+          ref: main  # 锁定默认分支，避免拉取错误代码
+    
+      # 2. 关键诊断：打印目录和文件，确认requirements.txt位置（必加）
+      - name: 诊断目录与文件
+        run: |
+          echo "✅ 工作目录：$GITHUB_WORKSPACE"
+          echo "✅ 目录下所有文件："
+          ls -la $GITHUB_WORKSPACE
+          echo "✅ 查找requirements.txt的全局位置："
+          find /home/runner/work -name "requirements.txt"
+    
+      # 3. 强制切换到工作目录（确保后续命令在正确路径执行）
+      - name: 切换到工作目录
+        run: cd $GITHUB_WORKSPACE && pwd
+    
+      # 4. 后续步骤（保持不变，依赖命令用绝对路径兜底）
+      - name: 随机延迟（避免风控）
+        run: sleep $((RANDOM % 60))
+    
+      - name: 设置Python环境
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'pip'
-      
+    
+      # 5. 安装依赖（核心：用绝对路径调用requirements.txt）
       - name: 安装依赖
         run: |
           pip install --upgrade pip
-          pip install -r ./requirements.txt
-      
+          # 用GITHUB_WORKSPACE绝对路径，彻底避免路径问题
+          pip install -r $GITHUB_WORKSPACE/requirements.txt
+    
+      # 后续步骤（创建目录、执行分析等，无需修改）
       - name: 创建必要目录
-        run: |
-          mkdir -p data logs reports
+        run: mkdir -p $GITHUB_WORKSPACE/data $GITHUB_WORKSPACE/logs $GITHUB_WORKSPACE/reports
+          
       
       - name: 执行股票分析
         env:
